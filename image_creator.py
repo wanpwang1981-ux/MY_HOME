@@ -20,9 +20,52 @@ def save_prompt(prompt, output_path):
     print(f"Prompt saved to {prompt_path}")
 
 
-def generate_image(api_key: str, image_path: str, prompt: str, output_path: str = "generated_image.png"):
+def generate_text_to_image(api_key: str, prompt: str, output_path: str = "generated_image.png"):
     """
-    Generates an image using a two-step process.
+    Generates an image from a text prompt using the Imagen model.
+
+    Args:
+        api_key: Your Google API key.
+        prompt: The text prompt to use for image generation.
+        output_path: The path to save the generated image.
+
+    Returns:
+        The path to the generated image (str), or None if an error occurs.
+    """
+    try:
+        genai.configure(api_key=api_key)
+
+        print("Generating image from text...")
+        client = genai.Client()
+        response = client.models.generate_images(
+            model='imagen-4.0-generate-001',
+            prompt=prompt,
+        )
+
+        if response.generated_images:
+            first_image = response.generated_images[0]
+            output_dir = os.path.dirname(output_path)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+
+            with open(output_path, 'wb') as f:
+                f.write(first_image.image.image_bytes)
+            print(f"Image saved to {output_path}")
+
+            # For text-to-image, we also save the prompt
+            save_prompt(prompt, output_path)
+            return output_path
+        else:
+            print("Error: No image was generated.")
+            return None
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def generate_text_and_image_to_image(api_key: str, image_path: str, prompt: str, output_path: str = "generated_image.png"):
+    """
+    Generates an image using a two-step process (text+image to image).
 
     Args:
         api_key: Your Google API key.
@@ -80,28 +123,4 @@ def generate_image(api_key: str, image_path: str, prompt: str, output_path: str 
         print(f"An error occurred: {e}")
         return None, None
 
-def main():
-    """
-    The main function that drives the command-line interface.
-    """
-    parser = argparse.ArgumentParser(description="Generate an image using an input image and a prompt.")
-    parser.add_argument("image_path", help="The path to the input image.")
-    parser.add_argument("prompt", help="The text prompt for image generation.")
-    parser.add_argument("output_path", help="The path to save the generated image.")
-    parser.add_argument("--api_key", help="Your Google API key.", default=os.environ.get("API_KEY"))
-
-    args = parser.parse_args()
-
-    if not args.api_key:
-        print("Error: API key not provided. Please set the API_KEY environment variable or use the --api_key argument.")
-        return
-
-    generate_image(
-        api_key=args.api_key,
-        image_path=args.image_path,
-        prompt=args.prompt,
-        output_path=args.output_path
-    )
-
-if __name__ == "__main__":
-    main()
+# The main block is removed as this script is now intended to be used as a library.
