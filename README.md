@@ -22,6 +22,8 @@
     ```bash
     git clone <repository-url>
     ```
+    （注意：請將 `<repository-url>` 替換為您要複製的儲存庫的實際 Git 網址。）
+
 2.  安裝所需的相依套件：
     ```bash
     pip install -r requirements.txt
