@@ -39,20 +39,22 @@ def generate_text_to_image(api_key: str, prompt: str, output_path: str = "genera
 
         model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
 
-        # This config is crucial to tell the model to generate an image
+        # Correct generation config, as hinted by the user's original JS code
         generation_config = {
-            "responseMimeType": "image/png",
+            "response_modalities": ["IMAGE", "TEXT"],
         }
 
         response = model.generate_content([prompt], generation_config=generation_config)
 
-        # The response structure for this model contains the image data directly
-        # in the first part of the first candidate.
         if response.candidates and response.candidates[0].content.parts:
-            image_part = response.candidates[0].content.parts[0]
+            # Find the part that contains the image data
+            image_part = None
+            for part in response.candidates[0].content.parts:
+                if part.inline_data:
+                    image_part = part
+                    break
 
-            # Check if the part contains inline data
-            if image_part.inline_data and image_part.inline_data.data:
+            if image_part and image_part.inline_data.data:
                 base64_data = image_part.inline_data.data
                 image_data = base64.b64decode(base64_data)
 
@@ -68,6 +70,7 @@ def generate_text_to_image(api_key: str, prompt: str, output_path: str = "genera
                 return output_path
             else:
                 print("Error: No inline image data found in the API response.")
+                print(f"Full response: {response}")
                 return None
         else:
             print("Error: Invalid response structure from API.")
