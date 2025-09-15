@@ -1,5 +1,4 @@
 import os
-import argparse
 import google.generativeai as genai
 from PIL import Image
 
@@ -20,9 +19,11 @@ def save_prompt(prompt, output_path):
     print(f"Prompt saved to {prompt_path}")
 
 
+import base64
+
 def generate_text_to_image(api_key: str, prompt: str, output_path: str = "generated_image.png"):
     """
-    Generates an image from a text prompt using the Imagen model.
+    Generates an image from a text prompt using the Gemini 2.5 Flash model.
 
     Args:
         api_key: Your Google API key.
@@ -34,33 +35,47 @@ def generate_text_to_image(api_key: str, prompt: str, output_path: str = "genera
     """
     try:
         genai.configure(api_key=api_key)
+        print("Generating image from text using Gemini 2.5 Flash...")
 
-        print("Generating image from text...")
-        client = genai.Client()
-        response = client.models.generate_images(
-            model='imagen-4.0-generate-001',
-            prompt=prompt,
-        )
+        model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
 
-        if response.generated_images:
-            first_image = response.generated_images[0]
-            output_dir = os.path.dirname(output_path)
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
+        # This config is crucial to tell the model to generate an image
+        generation_config = {
+            "responseMimeType": "image/png",
+        }
 
-            with open(output_path, 'wb') as f:
-                f.write(first_image.image.image_bytes)
-            print(f"Image saved to {output_path}")
+        response = model.generate_content([prompt], generation_config=generation_config)
 
-            # For text-to-image, we also save the prompt
-            save_prompt(prompt, output_path)
-            return output_path
+        # The response structure for this model contains the image data directly
+        # in the first part of the first candidate.
+        if response.candidates and response.candidates[0].content.parts:
+            image_part = response.candidates[0].content.parts[0]
+
+            # Check if the part contains inline data
+            if image_part.inline_data and image_part.inline_data.data:
+                base64_data = image_part.inline_data.data
+                image_data = base64.b64decode(base64_data)
+
+                output_dir = os.path.dirname(output_path)
+                if output_dir:
+                    os.makedirs(output_dir, exist_ok=True)
+
+                with open(output_path, 'wb') as f:
+                    f.write(image_data)
+                print(f"Image saved to {output_path}")
+
+                save_prompt(prompt, output_path)
+                return output_path
+            else:
+                print("Error: No inline image data found in the API response.")
+                return None
         else:
-            print("Error: No image was generated.")
+            print("Error: Invalid response structure from API.")
+            print(f"Full response: {response}")
             return None
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred in generate_text_to_image: {e}")
         return None
 
 def generate_text_and_image_to_image(api_key: str, image_path: str, prompt: str, output_path: str = "generated_image.png"):
